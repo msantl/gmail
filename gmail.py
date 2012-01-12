@@ -3,20 +3,40 @@ import imaplib, re
 import sys
 import pynotify
 import os
+import base64
+CONFIGPATH="/home/matija/scripts/gmail/.config.ini"
 
 def get_user_and_pass():
-	dat = open( "/home/matija/scripts/gmail/config.ini", "r" )
 	username = ""
 	password = ""
+	dpassword = ""
 
-	for line in dat:
-		line = line.strip()
-		match = re.search( r"<user>[\w.@]+</user>", line )
-		if match: username = line.split(">")[1].split("<")[0]
-		match = re.search( r"<pass>[\w.@]+</pass>", line )
-		if match: password = line.split(">")[1].split("<")[0]
+	try:
+		dat = open( CONFIGPATH, "r" )
+		for line in dat:
+			line = line.strip()
+			match = re.search( r"<user>[\w.@]+</user>", line )
+			if match: username = line.split(">")[1].split("<")[0]
+			match = re.search( r"<pass>.+</pass>", line )
+			if match: dpassword = line.split(">")[1].split("<")[0]
 	
-	dat.close()
+		password = base64.b64decode( dpassword )
+		dat.close()
+
+	except IOError as e:
+		print "If you are running this script for the first time, you need to enter your email and password for your google account"
+		print "Email address: ",
+		username = raw_input().strip()
+		print "Password: ",
+		password = raw_input().strip();
+
+		dpassword = base64.b64encode( password )
+
+		dat = open( CONFIGPATH, "w" );
+
+		dat.write( "<user>%s</user>\n<pass>%s</pass>\n" % ( username, dpassword ) )
+
+		dat.close()
 	
 	return (username, password)
 
@@ -30,7 +50,13 @@ class gmail(object):
 
   def login(self, username, password):
     self.M = imaplib.IMAP4_SSL(self.IMAP_SERVER, self.IMAP_PORT)
-    rc, self.response = self.M.login(username, password)
+    try:
+      rc, self.response = self.M.login(username, password)
+    except:
+			print "Looks like you entered your credentials wrong"
+			os.remove( CONFIGPATH )
+			sys.exit(1)
+
     return rc
 
   def get_unread_count(self, folder='Inbox'):
@@ -53,7 +79,7 @@ def main():
   username,password = get_user_and_pass()
   g.login( username, password )
 
-  out = int( g.get_unread_count('INBOX') ) + int( g.get_unread_count('Facebook') ) + int( g.get_unread_count('FER') )+ int( g.get_unread_count('TopCoder') )
+  out = int( g.get_unread_count('Internship') ) + int( g.get_unread_count('INBOX') ) + int( g.get_unread_count('Facebook') ) + int( g.get_unread_count('FER') )+ int( g.get_unread_count('TopCoder') )
   if not pynotify.init("GMail"):
     sys.exit(1)
 
